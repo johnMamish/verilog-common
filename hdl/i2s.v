@@ -77,7 +77,7 @@ module i2s_controller
 
                 bck_counter <= 'h0;
                 lrck_bitcounter <= lrck_bitcounter;
-            end else if (bck_counter == (bck_divisor_even >> 1)) begin
+            end else if (bck_counter == (bck_divisor_even >> 1) - 1) begin
                 // bitclock falling edge
                 // data becomes valid for a single clock cycle when entire frame has been read.
                 data_valid <= (lrck_bitcounter == (bits_per_frame - 1)) ? 'b1 : 'b0;
