@@ -153,7 +153,22 @@ module top (
     );
     defparam dut.TX_STATE_TICKS = 4;
 
+    ////////////////////////////////////////////////////////////////
+    // register writer deserializing
+    logic [15:0] command_addr;
+    logic [31:0] command_data;
+    logic command_valid;
+    word_concatenator wc (
+        .clk_i(clk_pll), .reset_i(sys_reset),
+        .data_i(data_from_ft232), .data_valid_i(data_from_ft232_valid),
+        .accumulated_data_o({command_data, command_addr}), .accumulated_data_valid_o(command_valid)
+    );
+    defparam wc.INPUT_WIDTH = 8;
+    defparam wc.NUM_WORDS_TO_CONCAT = 6;
+
     always_ff @(posedge clk_pll) begin
-        if (data_from_ft232_valid) led[6:0] <= data_from_ft232[6:0];
+        if (command_valid && (command_addr == 16'hbeef)) begin
+            led[6:0] <= command_data[6:0];
+        end
     end
 endmodule

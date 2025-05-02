@@ -18,9 +18,10 @@ module ft232h_async_driver #(
 
     ////////////////////////////////////////////////////////////////
     // fifo interface
-    // input
+    // input, data going from FPGA to ft232
     input [7:0] fifo_data_in,
     input fifo_data_valid_in,
+    output logic [15:0] remaining_space_out,
 
     // output
     // This interface module assumes that the target fifo will always be ready to write to.
@@ -62,6 +63,19 @@ module ft232h_async_driver #(
         .rinc(do_tx_fifo_read), .rdata(tx_fifo_read_data),
         .rempty(tx_fifo_empty), .arempty(tx_fifo_almost_empty)
     );
+
+    // async fifo is actually synchronous, so we can naively keep track of remaining space and
+    // pass it up for backpressure
+    logic [15:0] remaining_space;
+    assign remaining_space_out = remaining_space;
+    always_ff @(posedge clk_in) begin
+        if (fifo_data_valid_in && !do_tx_fifo_read) remaining_space <= remaining_space - 1;
+        if (!fifo_data_valid_in && do_tx_fifo_read) remaining_space <= remaining_space + 1;
+
+        if (reset_in) begin
+            remaining_space <= FIFO_DEPTH;
+        end
+    end
 
     ////////////////////////////////////////////////////////////////
     // sample ft245 signals to avoid metastability

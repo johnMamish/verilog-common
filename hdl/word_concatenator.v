@@ -17,7 +17,7 @@ module word_concatenator #(
     parameter NUM_WORDS_TO_CONCAT=4,
 
     // Valid values: {"little", "big"}
-    parameter string ENDIAN="little",
+    //parameter string ENDIAN="little",
 
     localparam OUTPUT_WIDTH = (INPUT_WIDTH * NUM_WORDS_TO_CONCAT)
 )  (
@@ -34,8 +34,9 @@ module word_concatenator #(
 );
     localparam CONCAT_IDX_MIN = 0;
     localparam CONCAT_IDX_MAX = INPUT_WIDTH * (NUM_WORDS_TO_CONCAT - 1);
-    localparam CONCAT_IDX_START = (ENDIAN == "little") ? CONCAT_IDX_MIN : CONCAT_IDX_MAX;
-    localparam CONCAT_IDX_END = (ENDIAN == "little") ? CONCAT_IDX_MAX : CONCAT_IDX_MIN;
+    localparam CONCAT_IDX_START = (/*ENDIAN == "little"*/ 1) ? CONCAT_IDX_MIN : CONCAT_IDX_MAX;
+    localparam CONCAT_IDX_END = (/*ENDIAN == "little"*/ 1) ? CONCAT_IDX_MAX : CONCAT_IDX_MIN;
+
     logic [$clog2(OUTPUT_WIDTH)+1:0] concat_idx;
     always_ff @(posedge clk_i) begin
         accumulated_data_valid_o <= 0;
@@ -46,7 +47,7 @@ module word_concatenator #(
                 concat_idx <= CONCAT_IDX_START;
                 accumulated_data_valid_o <= 1;
             end else begin
-                if (ENDIAN == "little") concat_idx <= concat_idx + INPUT_WIDTH;
+                if (/*ENDIAN == "little"*/ 1) concat_idx <= concat_idx + INPUT_WIDTH;
                 else concat_idx <= concat_idx - INPUT_WIDTH;
                 accumulated_data_valid_o <= 0;
             end
