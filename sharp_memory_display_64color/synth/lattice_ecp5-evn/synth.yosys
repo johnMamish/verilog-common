@@ -1,0 +1,4 @@
+read_verilog ../../hdl/util.v
+read_verilog -sv ../../hdl/sharp_64color_memory_display_driver.sv
+read_verilog -sv top.sv
+synth_ecp5 -top top -json top.json

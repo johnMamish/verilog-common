@@ -1,0 +1,75 @@
+# https://github.com/danderson/ulxs/blob/main/lpf.md
+
+################################
+# FTDI
+LOCATE COMP "ftdi_clk_12m" SITE "A10";
+IOBUF PORT "ftdi_clk_12m" IO_TYPE=LVCMOS25;
+FREQUENCY PORT "ftdi_clk_12m" 12 MHZ;
+
+# This is the FPGA's tx and FTDI's rx.
+LOCATE COMP "sda_0_uart_tx" SITE "E6";
+
+# This is the FPGA's rx and FTDI's tx.
+LOCATE COMP "scl_0_uart_rx" SITE "D7";
+
+# Both of these are on bank0, which must have vcc = 2.5 to work with the image sensor.
+IOBUF PORT "sda_0_uart_tx" IO_TYPE=LVCMOS25;
+IOBUF PORT "scl_0_uart_rx" IO_TYPE=LVCMOS25;
+
+################################
+# leds and buttons
+LOCATE COMP "led[0]" SITE "A13";
+LOCATE COMP "led[1]" SITE "A12";
+LOCATE COMP "led[2]" SITE "B19";
+LOCATE COMP "led[3]" SITE "A18";
+LOCATE COMP "led[4]" SITE "B18";
+LOCATE COMP "led[5]" SITE "C17";
+LOCATE COMP "led[6]" SITE "A17";
+LOCATE COMP "led[7]" SITE "B17";
+
+IOBUF PORT "led[0]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[1]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[2]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[3]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[4]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[5]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[6]" IO_TYPE=LVCMOS25;
+IOBUF PORT "led[7]" IO_TYPE=LVCMOS25;
+
+LOCATE COMP "btn" SITE "P4";
+IOBUF PORT "btn" IO_TYPE=LVCMOS25;
+
+################################
+# LS021B7DD02 pins
+# The LS021B7DD02 is connected through headers J8 and J5 with a custom PCB.
+LOCATE COMP "sharp_b[0]" SITE "H20";
+LOCATE COMP "sharp_b[1]" SITE "G19";
+LOCATE COMP "sharp_g[0]" SITE "K18";
+LOCATE COMP "sharp_g[1]" SITE "J18";
+LOCATE COMP "sharp_r[1]" SITE "K19";
+LOCATE COMP "sharp_r[0]" SITE "J19";
+LOCATE COMP "sharp_bsp" SITE "K20";
+LOCATE COMP "sharp_bck" SITE "J20";
+LOCATE COMP "sharp_intb" SITE "G20";
+
+IOBUF PORT "sharp_bck" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_bsp" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_r[0]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_r[1]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_g[0]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_g[1]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_b[0]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_b[1]" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_intb" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "sharp_gen" SITE "L16";
+LOCATE COMP "sharp_gck" SITE "M20";
+LOCATE COMP "sharp_gsp" SITE "L20";
+LOCATE COMP "sharp_va" SITE "L19";
+LOCATE COMP "sharp_vb_vcom" SITE "M19";     # Note that the silkscreen may be mislabeled
+
+IOBUF PORT "sharp_gen" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_gck" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_gsp" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_va" IO_TYPE=LVCMOS33;
+IOBUF PORT "sharp_vb_vcom" IO_TYPE=LVCMOS33;
