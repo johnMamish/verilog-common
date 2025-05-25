@@ -593,9 +593,11 @@ module i2c_controller #(
     i2c_transmitter_controller controller (
         .clock(clk_i), .reset(reset_i),
 
-        .dev_id_o(dev_id), .reg_addr_o(reg_addr), .reg_data_o(reg_data), .rw_bit_o(rw_bit),
-        .data_valid_o(data_valid), .i2c_tx_phases_o(i2c_tx_phases),
+        .frame_mode_o(frame_mode), .frame_end_condition_o(frame_end_condition),
+        .do_rd_ack_o(do_rd_ack), .wr_data_o(wr_data), .start_frame_strobe_o(start_frame_strobe),
         .i2c_transmitter_ready_i(i2c_transmitter_ready),
+
+        .nak_in_i(nak_in), .nak_in_valid_i(nak_in_valid),
 
         .transmitter_read_data_i(transmitter_read_data),
         .transmitter_read_data_valid_i(transmitter_read_data_valid),
@@ -610,11 +612,13 @@ module i2c_controller #(
     i2c_transmitter transmitter (
         .clock(clk_i), .reset(reset_i),
 
-        .dev_id_i(dev_id), .reg_addr(reg_addr), .reg_data(reg_data), .rw_bit(rw_bit),
-        .data_valid(data_valid), .phase_enable(i2c_tx_phases),
-        .ready(i2c_transmitter_ready),
+        .frame_mode_i(frame_mode), .frame_end_condition_i(frame_end_condition),
+        .do_rd_ack_i(do_rd_ack), .wr_data_i(wr_data), .start_frame_strobe_i(start_frame_strobe),
+        .ready_o(i2c_transmitter_ready),
 
-        .read_data(transmitter_read_data), .read_data_valid(transmitter_read_data_valid),
+        .nak_in_o(nak_in), .nak_in_valid_o(nak_in_valid),
+
+        .read_data_o(transmitter_read_data), .read_data_valid_o(transmitter_read_data_valid),
 
         .sda_io, .scl_io
     );
