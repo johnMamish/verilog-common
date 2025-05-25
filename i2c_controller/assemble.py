@@ -313,6 +313,8 @@ if __name__ == "__main__":
     p.register_instruction(JmpInstruction.MNEMONIC, JmpInstruction)
     p.register_instruction(JmpMaskUnsatisfiedInstruction.MNEMONIC, JmpMaskUnsatisfiedInstruction)
 
-    with open(args.input_file) as infile:
+    with open(args.input_file, 'r') as infile:
         p.parse_file(infile)
-        print(p.emit())
+
+    with open(args.output_file, 'w') as outfile:
+        outfile.write(p.emit())
