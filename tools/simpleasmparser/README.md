@@ -24,8 +24,11 @@ _loop:
 To use `SimpleAsmParser`, you just have to do two things:
 
 1. For each instruction in your instruction set, implement a class derived from `simpleasmparser.SimpleAsmInstruction`. In `simpleasmparser.py` we've provided a couple examples for you. Each class must do 3 things:
+
     a. Provide a `parse()` method. The `parse()` method should take `self.argtext` (a string containing everything after the instruction keyword) and evaluate it according to your instructions semantics.
+
     b. Fill out the `self.size_words` member variable. This must give the size that the instruction will take up in memory words. It's used by the parser for determining label position.
+
     c. Provide an `emit()` method. The `emit()` method should produce a string containing data appropriate for a systemverilog `.hex` file representing the instruction. The `emit()` method may emit comments (like `// ...`) to make the resulting hex file easier to understand.
 
 2. All your newly defined instructions need to be registered with a parser object, like so:
