@@ -30,6 +30,23 @@ To use `SimpleAsmParser`, you just have to do two things:
     b. During the `parse()` method, fill out the `self.size_words` member variable. This must give the size that the instruction will take up in memory words. It's used by the parser for determining label position.
 
     c. Provide an `emit()` method. The `emit()` method should produce a string containing data appropriate for a systemverilog `.hex` file representing the instruction. The `emit()` method may emit comments (like `// ...`) to make the resulting hex file easier to understand.
+    The `emit()` method should accept a single argument `parent` of type `SimpleAsmParser`. Through this argument, the `emit()` method can access labels by doing `parent.label_positions["label_name"].address`
+
+```python
+# super basic template instruction declaration
+class __NopInstruction(SimpleAsmInstruction):
+    MNEMONIC: str = "nop"
+
+    def parse(self):
+        args = self.argtext.split()
+        if (len(args) != 0):
+            raise ValueError("line {self.line_number}
+
+    def emit(self, parent):
+        return f"00_{self.arg:02x}"
+```
+
+The base `SimpleAsmInstruction` class also provides a few member variables to make things easier,
 
 2. All your newly defined instructions need to be registered with a parser object, like so:
 ```python

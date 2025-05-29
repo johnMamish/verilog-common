@@ -47,17 +47,17 @@ class SimpleAsmInstruction:
         # Which line number does this instruction appear on?
         self.line_number = line_number
 
-        # What is the length of this instruction and its associated arguments in 16b words?
+        # What is the length of this instruction and its associated arguments in machine words?
         self.size_words: int = None
 
         # The raw string text of all the arguments
         self.argtext = argtext
 
-        # What position does this instruction have in the program in 16b words?
+        # What position does this instruction have in the program in machine words?
         self.offset = offset
 
     # This function should parse the arguments and validate them.
-    # It must also set self.size_words to the final size of the instruction in 16b words.
+    # It must also set self.size_words to the final size of the instruction in machine words.
     # it can raise an error if there was an issue parsing the instruction's argument test.
     def parse(self) -> None:
         self.size_words = 0
@@ -120,7 +120,7 @@ class SimpleAsmLabel:
     # Which line number does this label appear at?
     line_number: int = None
 
-    # What is the address in 16b words?
+    # What is the address in machine words?
     address: int = None
 
     # Takes a string containing the label and a line number and strips it to
