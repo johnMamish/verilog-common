@@ -17,6 +17,8 @@ Check the readme for valid assembly syntax.
 # i2c_writeread n_readBytes <device_addr> <byte0> ... <byten>
 #     writes bytes 0 - n to device_addr, then generates a repeated start, then reads n_read bytes
 #
+# i2c_read n_readBytes <device_addr>
+#
 # set_read_tag 0x100
 #
 # delay <cycles>
@@ -60,7 +62,10 @@ Check the readme for valid assembly syntax.
 #     write_trigger 0b00_0001
 #     jmp _done
 
-from  simpleasmparser import *
+import sys
+import os
+sys.path.append(os.path.dirname(__file__) + "/../tools/simpleasmparser/")
+from simpleasmparser import *
 import math
 
 def convert_literal_bounded(line_number, arg, minimum, maximum, base=0):
@@ -177,10 +182,47 @@ class I2CWriteReadInstruction(SimpleAsmInstruction):
 
         # encode a device address write then read with a stop condition
         dev_read_addr = (self.dev_addr << 1) | 1
-        retval += f"00_01 {dev_read_addr}_00       // i2c send device address\n"
+        retval += f"00_01 {dev_read_addr:02x}_00       // i2c send device address\n"
         retval += f"0e_{self.read_length:02x}             // i2c read \n\n"
 
         return retval
+
+class I2CReadInstruction(SimpleAsmInstruction):
+    MNEMONIC: str = "i2c_read"
+
+    def parse(self):
+        self.dev_addr: int = 0
+
+        args = self.argtext.split()
+
+        l = args[0].lower()
+        if (not (l.endswith("bytes") or l.endswidth("byte") or l.endswith("b"))):
+            raise ValueError(f"line {self.line_number}: For clarity, {self.MNEMONIC} read length {args[0]} " \
+                             "must end with \'b\' or \'bytes\'.")
+        l = l.replace("bytes", "").replace("b", "")
+        self.read_length = convert_literal_bounded(self.line_number, l, 0, 255)
+
+        # dev_addr should be in [0, 127]
+        self.dev_addr = convert_literal_bounded(self.line_number, args[1], 0, 127)
+
+        # Figure out how many words our instruction will take up
+        # for the write portion (need to write device address)
+        self.size_words = int(math.ceil(1 + ((len(self.write_bytes) + 1) / 2)))
+
+        # for the read portion
+        self.size_words += int(1)
+
+    def emit(self, parent: SimpleAsmParser) -> str:
+        retval = ""
+
+        # encode a write with a repeated start condition to send the device address
+        dev_read_addr = (self.dev_addr << 1) | 1
+        bytes_to_send = len(self.write_bytes) + 1
+        retval += f"00_01 {dev_read_addr:02x}_00       // send device address for read\n"
+        retval += f"0e_{self.read_length:02x}          // i2c read \n\n"
+
+        return retval
+
 
 class SetReadTagInstruction(SimpleAsmInstruction):
     MNEMONIC: str = "set_read_tag"
@@ -192,6 +234,7 @@ class SetReadTagInstruction(SimpleAsmInstruction):
         if (len(args) != 1):
             raise ValueError("line {self.line_number}: {MNEMONIC} expected 1 argument, got {len(args)}")
         self.tag = convert_literal_bounded(self.line_number, args[0], 0, 0xfff)
+        self.size_words = 1
 
     def emit(self, parent: SimpleAsmParser) -> str:
         return f"1_{self.tag:03x}             // set read tag \n"
@@ -290,7 +333,7 @@ class JmpMaskUnsatisfiedInstruction(SimpleAsmInstruction):
         except KeyError as e:
             raise ValueError(f"line {self.line_number}: unknown label {self.jump_target}")
 
-        return f"9_{target.address:03x} {self.lowmask:02x}_{self.highmask:02x} \n"
+        return f"a_{target.address:03x} {self.lowmask:02x}_{self.highmask:02x}     // jmp_mask_unsatisfied\n"
 
 import argparse
 

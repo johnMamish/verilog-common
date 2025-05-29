@@ -26,6 +26,10 @@
  * It can perform simple initializations, reads, and polling behavior with no microcontroller.
  */
 
+/**
+ * - [x] nak output
+ * - [ ] make sure all instructions done
+ */
 
 /**
  * This 'i2c transmitter' sends a single i2c frame over the i2c bus. This transmitter is agnostic
@@ -44,8 +48,8 @@
 module i2c_transmitter #(
     parameter SCL_DIV = 60
 )  (
-    input clock_i,
-    input reset_i,
+    input clock,
+    input reset,
 
     // Control bus //////////////////////////////
     // What type of transaction should this frame be? read or write?
@@ -54,7 +58,8 @@ module i2c_transmitter #(
     // What end condition should we drive? none, repeated start, or stop?
     input [1:0] frame_end_condition_i,
 
-    // This tells us whether we should ack the read or not
+    // This tells us whether we should ack the read or not.
+    // If this bit is set, then the read will be acked. If it's unset, then it will be nak'd.
     input do_rd_ack_i,
 
     // What data should be transmitted?
@@ -110,8 +115,7 @@ module i2c_transmitter #(
         IDLE=0,
         PRE_START_COND=1,
         START_COND=2,
-        TX_FRAME = 3,
-        RX_FRAME = 4,
+        TXRX_FRAME = 3,
         TERMINATE_REGULAR_COND = 5,
         TERMINATE_RS_COND = 6,
         TERMINATE_STOP_COND = 7
@@ -124,6 +128,8 @@ module i2c_transmitter #(
     logic [7:0] rd_data_latch;
     logic start_cond_needed;
 
+    logic [3:0] bit_addr;
+
     always_ff @(posedge clock) begin
         // These output strobes are always low except for the 1 cycle when they're used.
         nak_in_valid_o <= 0;
@@ -132,7 +138,7 @@ module i2c_transmitter #(
         case (state)
             IDLE: begin
                 scl <= start_cond_needed ? '1 : '0;
-                ready <= '1;
+                ready_o <= '1;
 
                 // latch settings for this frame.
                 frame_mode_latch <= frame_mode_i;
@@ -157,8 +163,6 @@ module i2c_transmitter #(
                 // on rising edge of scl serial clock, we bring sda low and advance to the next state.
                 if (scl_freq_rose) begin
                     sda <= '0;
-                    //if (frame_mode_i == `I2C_TRANSMITTER_MODE_WRITE) state <= TX_FRAME;
-                    //if (frame_mode_i == `I2C_TRANSMITTER_MODE_READ) state <= RX_FRAME;
                     state <= TXRX_FRAME;
                     bit_addr <= '0;
                 end
@@ -168,11 +172,10 @@ module i2c_transmitter #(
                 logic in_rx_mode;
                 in_rx_mode = (frame_mode_latch == `I2C_TRANSMITTER_MODE_READ);
                 if (scl_freq_fell) begin
-                    // bring scl low and advance the bit address
+                    // bring scl low
                     scl <= '0;
-                    bit_addr <= bit_addr + 1;
 
-                    if (bit_addr == 4'h8) begin
+                    if (bit_addr >= 4'h8) begin
                         // allow NAK to happen, unless we are in rx mode and we want to ack it.
                         sda <= 1'b1;
                         if (in_rx_mode && do_rd_ack_latch) sda <= 1'b0;
@@ -189,12 +192,7 @@ module i2c_transmitter #(
                 end
 
                 if (scl_freq_rose) begin
-                    scl <= '1;
-
                     if (bit_addr == 4'h9) begin
-                        // If we're in tx mode, sample nak.
-                        if (!in_rx_mode) {nak_in_o, nak_in_valid_o} <= {sda, 1'b1};
-
                         // Done transmitting, terminate the frame.
                         case (frame_end_condition_latch)
                             `I2C_TRANSMITTER_END_CONDITION_NONE: state <= TERMINATE_REGULAR_COND;
@@ -202,9 +200,18 @@ module i2c_transmitter #(
                             `I2C_TRANSMITTER_END_CONDITION_STOP: state <= TERMINATE_STOP_COND;
                         endcase
                         bit_addr <= '0;
+                    end else if (bit_addr == 4'h8) begin
+                        // nak
+                        if (!in_rx_mode) {nak_in_o, nak_in_valid_o} <= {sda_io, 1'b1};
+
+                        scl <= '1;
+                        bit_addr <= bit_addr + 1;
                     end else begin
+                        scl <= '1;
+                        bit_addr <= bit_addr + 1;
+
                         // If we're reading data, shift it into the latch
-                        if (in_rx_mode) rd_data_latch[7 - bit_addr] <= sda;
+                        if (in_rx_mode) rd_data_latch[7 - bit_addr] <= sda_io;
                     end
                 end
             end
@@ -238,7 +245,7 @@ module i2c_transmitter #(
                     if (bit_addr == 2) begin
                         start_cond_needed <= '1;
                         state <= IDLE;
-                        ready <= '1;
+                        ready_o <= '1;
                     end
                 end
             end
@@ -258,7 +265,7 @@ module i2c_transmitter #(
                     if (bit_addr == 2) begin
                         start_cond_needed <= '1;
                         state <= IDLE;
-                        ready <= '1;
+                        ready_o <= '1;
                         sda <= '1;
                     end
                 end
@@ -338,7 +345,6 @@ endmodule
  *
  */
 module i2c_transmitter_controller #(
-    parameter INITIAL_DEV_ID = 7'h35,
     parameter MEM_NUM_WORDS = 512,
     parameter INIT_FILE = "i2c_initializer.hex"
 )  (
@@ -356,6 +362,10 @@ module i2c_transmitter_controller #(
 
     input nak_in_i,
     input nak_in_valid_i,
+
+    // Results of write data. If a result is nak'd, then nak_o is high while nak_valid_o is strobed.
+    output logic nak_o,
+    output logic nak_valid_o,
 
     // results of read data
     input [7:0] transmitter_read_data_i,
@@ -379,6 +389,7 @@ module i2c_transmitter_controller #(
     ////////////////////////////////////////////////////////////////
     // opcodes
     localparam logic [3:0] OPCODE_XFER = 4'b0000;
+    localparam logic [3:0] OPCODE_SET_READ_TAG = 4'b0001;
 
     localparam logic [3:0] OPCODE_WAIT = 4'b0100;
     localparam logic [3:0] OPCODE_TRIG = 4'b0101;
@@ -390,7 +401,7 @@ module i2c_transmitter_controller #(
 
     ////////////////////////////////////////////////////////////////
     // state variables
-    signed logic [11:0] pc;
+    logic signed [11:0] pc;
     logic [15:0] ir;
     logic [31:0] arg;
     logic [7:0] arg_count;
@@ -408,9 +419,9 @@ module i2c_transmitter_controller #(
     logic [5:0] trigger_signals;
 
     always_ff @(posedge clock) begin
-        data_valid_o <= '0;
-        rw_bit_o <= '0;
+        read_data_valid_o <= '0;
         trigger_signals <= trigger_i;
+        start_frame_strobe_o <= 0;
 
         cycle_count <= cycle_count + 1;
         case (state)
@@ -431,6 +442,15 @@ module i2c_transmitter_controller #(
                         // just go directly to the XFER_FETCH stage
                         arg_count <= 0;
                         state <= XFER_FETCH;
+                    end
+
+                    OPCODE_SET_READ_TAG: begin
+                        if (i2c_transmitter_ready_i) begin
+                            // wait until the i2c transmitter is ready before changing the tag.
+                            // this ensures that there's no pending transaction.
+                            read_tag_o <= ir[0 +: 12];
+                            state <= FETCH;
+                        end
                     end
 
                     OPCODE_WAIT: begin
@@ -464,12 +484,13 @@ module i2c_transmitter_controller #(
                     end
 
                     OPCODE_JMP_COND: begin
-                        if (i2c_transmitter_ready) begin
+                        if (i2c_transmitter_ready_i) begin
                             // need to wait until the i2c transmitter isn't busy, otherwise we
                             // may not have rx'd the data that we need.
                             // check bitmask against rx'd byte
                             arg <= mem[pc];
                             pc <= pc + 1;
+                            state <= COND_BRANCH_EX;
                         end
                     end
 
@@ -480,8 +501,10 @@ module i2c_transmitter_controller #(
             end
 
             XFER_FETCH: begin
-                arg <= mem[pc];
-                pc <= pc + 1;
+                if ((arg_count[0] == 0) && (ir[10] == 0)) begin
+                    arg <= mem[pc];
+                    pc <= pc + 1;
+                end
                 state <= XFER_EX;
             end
 
@@ -499,17 +522,20 @@ module i2c_transmitter_controller #(
                         do_rd_ack_o <= 0;
                     end else begin
                         frame_end_condition_o <= `I2C_TRANSMITTER_END_CONDITION_NONE;
-                        do_rd_ack_o <= 1;
+                        do_rd_ack_o <= ~ir[11];
                     end
 
-                    wr_data_o <= arg_count[0] ? arg[8 +: 8] : arg[0 +: 8];
+                    // data is presented in big endian
+                    wr_data_o <= arg_count[0] ? arg[0 +: 8] : arg[8 +: 8];
                     start_frame_strobe_o <= 1;
 
-                    // advance to the next argument and re-fetch if needed.
+                    // Advance to the next argument and stop transmitting if xfer is done.
                     arg_count <= arg_count + 1;
                     if ((arg_count + 1) == ir[0 +: 8]) state <= FETCH;
-                    else if (arg_count[0] == '1) state <= XFER_FETCH;
-                    else state <= XFER_EX;
+
+                    // always go back to the FETCH state even if we don't need the next arg - this
+                    // gives the transmitter one cycle to mark itself as busy.
+                    else state <= XFER_FETCH;
                 end
             end
 
@@ -519,7 +545,7 @@ module i2c_transmitter_controller #(
                 high_bits_ok = &((read_data_o & arg[0 +: 8]) | ~arg[0 +: 8]);
                 low_bits_ok  = &((~read_data_o & arg[8 +: 8]) | ~arg[8 +: 8]);
                 if (!(high_bits_ok && low_bits_ok)) begin
-                    pc <= signed'(pc) + signed'(ir[0 +: 12]);
+                    pc <= ir[0 +: 12];
                 end else begin
                     // pc just advances normally.
                     // it's already advanced from the FETCH stage.
@@ -538,12 +564,19 @@ module i2c_transmitter_controller #(
 
     // We don't stall in the RX state to wait for the data to arrive.
     // This block latches the RX data when it's ready so it can be read off.
-    always_ff @(posedge clk) begin
+    always_ff @(posedge clock) begin
         read_data_valid_o <= 0;
+        nak_valid_o <= 0;
 
         if (transmitter_read_data_valid_i) begin
             read_data_o <= transmitter_read_data_i;
             read_data_valid_o <= 1;
+            read_tag_o <= read_tag_o + 1;
+        end
+
+        if (nak_in_valid_i) begin
+            nak_o <= nak_in_i;
+            nak_valid_o <= 1;
         end
     end
 endmodule // i2c_transmitter_controller
@@ -554,7 +587,6 @@ endmodule // i2c_transmitter_controller
  */
 module i2c_controller #(
     parameter SCL_DIV = 60,
-    parameter INITIAL_DEV_ID = 7'h35,
     parameter MEM_NUM_WORDS = 512,
     parameter INIT_FILE = "i2c_initializer.hex"
 )  (
@@ -566,10 +598,13 @@ module i2c_controller #(
     inout scl_io,
 
     // outputs the most recently read byte from the i2c alongside a tag.
-    output logic [15:0] read_tag_o,
+    output logic [11:0] read_tag_o,
     output logic [7:0] read_data_o,
-    output logic nak_o,
     output logic read_data_valid_o,
+
+    // outputs the nak result of the most recent write
+    output logic nak_o,
+    output logic nak_valid_o,
 
     // Trigger i/os
     output logic [5:0] trigger_o,
@@ -602,12 +637,12 @@ module i2c_controller #(
         .transmitter_read_data_i(transmitter_read_data),
         .transmitter_read_data_valid_i(transmitter_read_data_valid),
 
-        .read_tag_o, .read_data_o, .nak_o, .read_data_valid_o,
+        .read_tag_o, .read_data_o, .read_data_valid_o,
+        .nak_o, .nak_valid_o,
         .trigger_o, .trigger_i
     );
-    defparam INITIAL_DEV_ID = INITIAL_DEV_ID;
-    defparam MEM_NUM_WORDS = MEM_NUM_WORDS;
-    defparam INIT_FILE = INIT_FILE;
+    defparam controller.MEM_NUM_WORDS = MEM_NUM_WORDS;
+    defparam controller.INIT_FILE = INIT_FILE;
 
     i2c_transmitter transmitter (
         .clock(clk_i), .reset(reset_i),
