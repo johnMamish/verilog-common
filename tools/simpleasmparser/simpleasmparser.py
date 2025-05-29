@@ -74,13 +74,11 @@ class SimpleAsmInstruction:
 
 # Example instruction declaration
 class __AddInstruction(SimpleAsmInstruction):
-    # args
-
     MNEMONIC: str = "add"
 
     # We recommend not declaring an init. The super().init should handle most things.
-    def __init__(self, argtext: str, line_number: int, offset: int):
-        super().__init__(argtext, line_number, offset)
+    #def __init__(self, argtext: str, line_number: int, offset: int):
+        #super().__init__(argtext, line_number, offset)
 
     def parse(self):
         self.dest_register: int
