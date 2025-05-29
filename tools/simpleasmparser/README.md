@@ -35,15 +35,13 @@ To use `SimpleAsmParser`, you just have to do two things:
 ```python
 # super basic template instruction declaration
 class __NopInstruction(SimpleAsmInstruction):
-    MNEMONIC: str = "nop"
-
     def parse(self):
         args = self.argtext.split()
         if (len(args) != 0):
-            raise ValueError("line {self.line_number}
+            raise ValueError("line {self.line_number}: nop doesn't take any args")
 
     def emit(self, parent):
-        return f"00_{self.arg:02x}"
+        return f"00_00"
 ```
 
 The base `SimpleAsmInstruction` class also provides a few member variables to make things easier,
