@@ -160,7 +160,7 @@ class I2CWriteReadInstruction(SimpleAsmInstruction):
         self.size_words = int(math.ceil(1 + ((len(self.write_bytes) + 1) / 2)))
 
         # for the read portion
-        self.size_words += int(1)
+        self.size_words += int(1) + int(2)
 
     def emit(self, parent: SimpleAsmParser) -> str:
         retval = ""
@@ -178,12 +178,12 @@ class I2CWriteReadInstruction(SimpleAsmInstruction):
         if ((len(w) % 2) != 0):
             retval += f"{w[-1]:02x}00"
 
-        retval += "   // i2c write with repeated start \n\n"
+        retval += "   // i2c write with repeated start \n"
 
         # encode a device address write then read with a stop condition
         dev_read_addr = (self.dev_addr << 1) | 1
         retval += f"00_01 {dev_read_addr:02x}_00       // i2c send device address\n"
-        retval += f"0e_{self.read_length:02x}             // i2c read \n\n"
+        retval += f"0e_{self.read_length:02x}             // i2c read ({self.size_words} words) \n\n"
 
         return retval
 
@@ -219,7 +219,7 @@ class I2CReadInstruction(SimpleAsmInstruction):
         dev_read_addr = (self.dev_addr << 1) | 1
         bytes_to_send = len(self.write_bytes) + 1
         retval += f"00_01 {dev_read_addr:02x}_00       // send device address for read\n"
-        retval += f"0e_{self.read_length:02x}          // i2c read \n\n"
+        retval += f"0e_{self.read_length:02x}          // i2c read ({self.size_words} words)\n\n"
 
         return retval
 
@@ -237,7 +237,7 @@ class SetReadTagInstruction(SimpleAsmInstruction):
         self.size_words = 1
 
     def emit(self, parent: SimpleAsmParser) -> str:
-        return f"1_{self.tag:03x}             // set read tag \n"
+        return f"1_{self.tag:03x}             // set read tag ({self.size_words} words)\n\n"
 
 class DelayInstruction(SimpleAsmInstruction):
     MNEMONIC: str = "delay"
@@ -264,7 +264,7 @@ class DelayInstruction(SimpleAsmInstruction):
             print(f"Line {self.line_number}: Warning: specified delay {self.arg} not "
                   f"exactly representable. Using delay {actual_delay}")
 
-        return f"1_{exponent:01x}_{mantissa:02x}            // const delay {self.arg} clock cycles\n"
+        return f"4_{exponent:01x}_{mantissa:02x}            // const delay {self.arg} clock cycles ({self.size_words} words)\n"
 
 class WaitTriggerInstruction(SimpleAsmInstruction):
     MNEMONIC: str = "wait_trigger"

@@ -65,7 +65,7 @@ Example:
 #### `i2c_writeread`
 This instruction writes up to 255 bytes to the specified device address, sends a repeated start, and then reads up to 255 bytes.
 
-Usage: `i2c_write <n_bytes>Bytes <device_addr> <byte0> <byte1> ... <byten>`
+Usage: `i2c_writeread <n_bytes>Bytes <device_addr> <byte0> <byte1> ... <byten>`
 
 Example:
 ```assembly

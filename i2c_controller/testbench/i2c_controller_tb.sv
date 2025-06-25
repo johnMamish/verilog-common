@@ -133,14 +133,14 @@ module i2c_initializer_tb;
                     end else begin
                         // read operation
                         for (int signed i = 7; i > 0; i--) begin
-                            sda_dev <= data_to_write[i];
-                            @(posedge scl);
+                            sda_dev <= #1 data_to_write[i];
+                            @(negedge scl);
                         end
                         sda_dev <= data_to_write[0];
 
                         // let controller ack
-                        @(negedge scl); sda_dev <= 1'bz;
-                        @(negedge scl); sda_dev <= 1'bz;
+                        @(negedge scl); sda_dev <= #1 1'bz;
+                        @(negedge scl); sda_dev <= #1 1'bz;
                         data_to_write <= data_to_write + 1; #1;
 
                         $display("dummy i2c device: write frame with data %02x", data_to_write);
