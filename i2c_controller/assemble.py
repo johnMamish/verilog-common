@@ -138,10 +138,10 @@ class I2CWriteReadInstruction(SimpleAsmInstruction):
         args = self.argtext.split()
 
         l = args[0].lower()
-        if (not (l.endswith("bytes") or l.endswidth("byte") or l.endswith("b"))):
+        if (not (l.endswith("bytes") or l.endswith("byte") or l.endswith("b"))):
             raise ValueError(f"line {self.line_number}: For clarity, {self.MNEMONIC} read length {args[0]} " \
                              "must end with \'b\' or \'bytes\'.")
-        l = l.replace("bytes", "").replace("b", "")
+        l = l.replace("bytes", "").replace("byte", "").replace("b", "")
         self.read_length = convert_literal_bounded(self.line_number, l, 0, 255)
 
         # dev_addr should be in [0, 127]
@@ -205,24 +205,36 @@ class I2CReadInstruction(SimpleAsmInstruction):
         # dev_addr should be in [0, 127]
         self.dev_addr = convert_literal_bounded(self.line_number, args[1], 0, 127)
 
-        # Figure out how many words our instruction will take up
-        # for the write portion (need to write device address)
-        self.size_words = int(math.ceil(1 + ((len(self.write_bytes) + 1) / 2)))
-
-        # for the read portion
-        self.size_words += int(1)
+        # Need 2 words to write the device address and 1 word to read
+        self.size_words = int(2) + int(1)
 
     def emit(self, parent: SimpleAsmParser) -> str:
         retval = ""
 
         # encode a write with a repeated start condition to send the device address
         dev_read_addr = (self.dev_addr << 1) | 1
-        bytes_to_send = len(self.write_bytes) + 1
         retval += f"00_01 {dev_read_addr:02x}_00       // send device address for read\n"
         retval += f"0e_{self.read_length:02x}          // i2c read ({self.size_words} words)\n\n"
 
         return retval
 
+class I2CReadRawInstruction(SimpleAsmInstruction):
+    MNEMONIC: str = "i2c_read_raw"
+
+    def parse(self):
+        args = self.argtext.split()
+
+        l = args[0].lower()
+        if (not (l.endswith("bytes") or l.endswidth("byte") or l.endswith("b"))):
+            raise ValueError(f"line {self.line_number}: For clarity, {self.MNEMONIC} read length {args[0]} " \
+                             "must end with \'b\' or \'bytes\'.")
+        l = l.replace("bytes", "").replace("b", "")
+        self.read_length = convert_literal_bounded(self.line_number, l, 0, 255)
+
+        self.size_words = int(1)
+
+    def emit(self, parent: SimpleAsmParser) -> str:
+        return f"0e_{self.read_length:02x}          // i2c raw_read ({self.size_words} words)\n\n"
 
 class SetReadTagInstruction(SimpleAsmInstruction):
     MNEMONIC: str = "set_read_tag"
@@ -348,6 +360,8 @@ if __name__ == "__main__":
     # Make new parser and register our assembly instructions with it
     p = SimpleAsmParser()
     p.register_instruction(I2CWriteInstruction.MNEMONIC, I2CWriteInstruction)
+    p.register_instruction(I2CReadInstruction.MNEMONIC, I2CReadInstruction)
+    p.register_instruction(I2CReadRawInstruction.MNEMONIC, I2CReadRawInstruction)
     p.register_instruction(I2CWriteReadInstruction.MNEMONIC, I2CWriteReadInstruction)
     p.register_instruction(SetReadTagInstruction.MNEMONIC, SetReadTagInstruction)
     p.register_instruction(DelayInstruction.MNEMONIC, DelayInstruction)

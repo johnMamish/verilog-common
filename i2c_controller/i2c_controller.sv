@@ -383,9 +383,9 @@ module i2c_transmitter_controller #(
 );
     reg [15:0] mem [MEM_NUM_WORDS];
 
-    initial begin
-        $readmemh(INIT_FILE, mem);
-    end
+    generate
+        if (INIT_FILE != "") initial $readmemh(INIT_FILE, mem);
+    endgenerate
 
     ////////////////////////////////////////////////////////////////
     // opcodes

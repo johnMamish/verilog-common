@@ -130,14 +130,14 @@ _loop:
 This instruction is given 2 masks: a low mask and a high mask. If the most-recently read byte does not match the low and high masks then the given label is jumped to.
 
 A byte x 'matches' the low mask if x is '0' wherever the low mask is '1'. It matches a high mask if
-x is '1' wherever the mask is '1'. For example
+x is '1' wherever the mask is '1'. For example:
 
 ```
       0100 0011       0100 0011       0100 0111
   low:0001 0100  high:0000 0001   low:0001 0100
    -------------    -----------   -------------
       xxx1 x1xx       xxxx xxx1       xxx1 x0xx
-      matches         matches         doesn't match
+      matches         matches         doesn't match because of bit 2.
 ```
 
 Example:
@@ -147,3 +147,5 @@ _loop:
     i2c_writeread 1Byte 0x20 0x01 0x01
     jmp_mask_unsatisfied _loop 0b0000_1000 0b0000_0001
 ```
+
+The low mask comes first and the high mask comes second in the arg list.
