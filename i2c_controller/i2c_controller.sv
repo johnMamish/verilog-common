@@ -96,19 +96,28 @@ module i2c_transmitter #(
     // kind of hacky, but simple: rising and falling edge detection for divided clock
     logic [15:0] scl_counter;
     logic scl_freq, scl_freq_prev, scl_freq_rose, scl_freq_fell;
+    logic scl_rose, scl_rise_pending, clock_may_stretch;
     always_ff @(posedge clock) begin
         // advance scl counter
-        scl_counter <= scl_counter + 1;
-        if (scl_counter == (SCL_DIV - 1)) begin
-            scl_counter <= 0;
-        end
+        if (scl_rise_pending) scl_counter <= scl_counter;           // handle clock stretching
+        else if (scl_counter == (SCL_DIV - 1)) scl_counter <= 0;
+        else scl_counter <= scl_counter + 1;
+
+        // detect end of clock stretching
+        scl_rose <= 0;
+        if (scl_rise_pending && scl_io && clock_may_stretch) {scl_rise_pending, scl_rose} <= {1'b0, 1'b1};
+        if (scl_rise_pending && !clock_may_stretch) scl_rise_pending <= 0;g
 
         // detect where we should put rising and falling edges
         {scl_freq_rose, scl_freq_fell} <= '0;
         if (scl_counter == 0) scl_freq_fell <= 1;
-        if (scl_counter == (SCL_DIV >> 1)) scl_freq_rose <= 1;
+        if (scl_counter == (SCL_DIV >> 1)) {scl_rise_pending, scl_freq_rose} <= {1'b1, 1'b1};
 
-        if (reset) scl_counter <= 0;
+        if (reset) begin
+            scl_counter <= 0;
+            scl_rise_pending <= 0;
+            scl_rose <= 0;
+        end
     end
 
     enum logic [2:0] {
@@ -134,6 +143,7 @@ module i2c_transmitter #(
         // These output strobes are always low except for the 1 cycle when they're used.
         nak_in_valid_o <= 0;
         read_data_valid_o <= 0;
+        clock_may_stretch <= 0;
 
         case (state)
             IDLE: begin
@@ -171,6 +181,8 @@ module i2c_transmitter #(
             TXRX_FRAME: begin
                 logic in_rx_mode;
                 in_rx_mode = (frame_mode_latch == `I2C_TRANSMITTER_MODE_READ);
+                clock_may_stretch <= 1;
+
                 if (scl_freq_fell) begin
                     // bring scl low
                     scl <= '0;
@@ -201,14 +213,16 @@ module i2c_transmitter #(
                             `I2C_TRANSMITTER_END_CONDITION_STOP: state <= TERMINATE_STOP_COND;
                         endcase
                         bit_addr <= '0;
-                    end else if (bit_addr == 4'h8) begin
+                        clock_may_stretch <= 0;
+                    end else if (bit_addr < 4'h9) scl <= '1;
+                end
+
+                if (scl_rose) begin
+                    if (bit_addr == 4'h8) begin
                         // nak
                         if (!in_rx_mode) {nak_in_o, nak_in_valid_o} <= {sda_io, 1'b1};
-
-                        scl <= '1;
                         bit_addr <= bit_addr + 1;
                     end else begin
-                        scl <= '1;
                         bit_addr <= bit_addr + 1;
 
                         // If we're reading data, shift it into the latch
