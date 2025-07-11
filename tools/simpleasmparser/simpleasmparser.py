@@ -129,7 +129,8 @@ class SimpleAsmLabel:
         self.line_number = line_number
 
 
-# This class iterates over
+# This class iterates over all of the lines in an input file and parses them as instructions,
+# then emits them to a file
 # You should provide it with an instruction factory that maps instruction names to instruction
 # classes
 class SimpleAsmParser:
@@ -155,7 +156,7 @@ class SimpleAsmParser:
     # You should pass in an opened file object
     def parse_file(self, f) -> None:
         address = 0
-        for line_number, line in enumerate(f):
+        for line_number, line in enumerate(f, start=1):
             # Trim comment from end and whitespace
             line = line.split("#", maxsplit=1)[0]
             line = line.strip()
@@ -165,7 +166,7 @@ class SimpleAsmParser:
 
             # Check if it's a label, otherwise try to make it an instruction
             if (line.endswith(":")):
-                label = SimpleAsmLabel(line, line_number+1)
+                label = SimpleAsmLabel(line, line_number)
                 label.address = address
                 self.label_positions[label.name] = label
             else:
@@ -173,9 +174,9 @@ class SimpleAsmParser:
                     spl = line.split(maxsplit=1)
                     mnem = spl[0]
                     argtext = "" if (len(spl) <= 1) else spl[1]
-                    instr = self.known_instructions[mnem](argtext, line_number+1, address)
+                    instr = self.known_instructions[mnem](argtext, line_number, address)
                 except KeyError as e:
-                    raise ValueError(f"Line {line_number + 1}: Unknown instruction {mnem}")
+                    raise ValueError(f"Line {line_number}: Unknown instruction {mnem}")
 
                 instr.parse()
                 self.firstpass.append(instr)
@@ -186,5 +187,6 @@ class SimpleAsmParser:
     def emit(self) -> str:
         outputstr = ""
         for instr in self.firstpass:
+            print(f"emitting instruction {instr.MNEMONIC}")
             outputstr += instr.emit(self)
         return outputstr

@@ -22,7 +22,9 @@ Check the readme for valid assembly syntax.
 # set_read_tag 0x100
 #
 # delay <cycles>
-#     Delays for <cycles> cycles. If <cycles> can't be exactly represented by the
+#     Delays for <cycles> cycles. The number of cycles is represented by a floating point immediate,
+#     so not all values will be possible. If an unrepresentable value is requested, then we round
+#     up to the closest value.
 #
 # wait_trigger llllll hhhhhh
 #     Waits until the trigger bits match the bitmask.
